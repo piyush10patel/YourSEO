@@ -26,6 +26,7 @@ from app.schemas.project import (
     CrawlRequest,
     CrawlResponse,
     GraphResponse,
+    GscImport,
     KeywordCreate,
     KeywordOut,
     PageOut,
@@ -36,7 +37,9 @@ from app.schemas.project import (
     RecommendationStatusUpdate,
     ReportResponse,
 )
-from app.services import clustering, knowledge_graph, reporting
+from app.integrations.gsc import parse_gsc_csv
+from app.integrations.providers import get_backlink_provider, get_serp_provider
+from app.services import clustering, enrichment, knowledge_graph, reporting
 from app.services import recommendations as rec_engine
 from app.services.audit import AuditResult, run_audit_async
 from app.services.audit_engine import run_project_crawl_audit
@@ -274,6 +277,76 @@ async def list_keywords(
         session, project_id=project_id, organization_id=org_id
     )
     return [KeywordOut.model_validate(k) for k in kws]
+
+
+@router.post(
+    "/projects/{project_id}/keywords/import-gsc",
+    response_model=list[KeywordOut],
+    summary="Import keywords from a Google Search Console CSV export",
+)
+async def import_gsc(
+    project_id: uuid.UUID,
+    payload: GscImport,
+    session: AsyncSession = Depends(get_session),
+    org_id: uuid.UUID = Depends(get_current_org_id),
+    _role: Role = Depends(require_role(Role.EDITOR)),
+) -> list[KeywordOut]:
+    await _require_project(session, project_id, org_id)
+    rows = parse_gsc_csv(payload.csv)
+    created = await repo.add_keywords(
+        session, project_id=project_id, keywords=[r["query"] for r in rows]
+    )
+    return [KeywordOut.model_validate(k) for k in created]
+
+
+@router.post(
+    "/projects/{project_id}/keywords/enrich",
+    response_model=list[KeywordOut],
+    summary="Enrich keywords with volume / difficulty / intent",
+)
+async def enrich_project_keywords(
+    project_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    org_id: uuid.UUID = Depends(get_current_org_id),
+    _role: Role = Depends(require_role(Role.EDITOR)),
+) -> list[KeywordOut]:
+    kws = await enrichment.enrich_keywords(
+        session, organization_id=org_id, project_id=project_id
+    )
+    return [KeywordOut.model_validate(k) for k in kws]
+
+
+@router.get(
+    "/projects/{project_id}/serp",
+    summary="Current SERP positions for the project's keywords",
+)
+async def project_serp(
+    project_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    org_id: uuid.UUID = Depends(get_current_org_id),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, int]:
+    project = await _require_project(session, project_id, org_id)
+    kws = await repo.list_keywords(
+        session, project_id=project_id, organization_id=org_id
+    )
+    provider = get_serp_provider(settings)
+    return provider.positions(project.domain or "", [k.keyword for k in kws])
+
+
+@router.get(
+    "/projects/{project_id}/backlinks",
+    summary="Backlink / authority summary for the project's domain",
+)
+async def project_backlinks(
+    project_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    org_id: uuid.UUID = Depends(get_current_org_id),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    project = await _require_project(session, project_id, org_id)
+    provider = get_backlink_provider(settings)
+    return provider.summary(project.domain or "unknown")
 
 
 @router.post(

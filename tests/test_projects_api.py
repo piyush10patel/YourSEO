@@ -136,6 +136,33 @@ async def test_rbac_viewer_cannot_mutate_but_can_read(client) -> None:
     assert blocked.status_code == 403
 
 
+async def test_gsc_import_enrich_serp_backlinks(client) -> None:
+    pid = (
+        await client.post("/api/v1/projects", json={"name": "Data", "domain": "x.com"})
+    ).json()["id"]
+
+    # Import keywords from a GSC CSV.
+    csv_text = (
+        "Query,Clicks,Impressions,Position\nseo audit,5,200,4.1\nlink building,1,80,9\n"
+    )
+    imported = await client.post(
+        f"/api/v1/projects/{pid}/keywords/import-gsc", json={"csv": csv_text}
+    )
+    assert imported.status_code == 200
+    assert len(imported.json()) == 2
+
+    # Enrich them with provider metrics (stub).
+    enriched = await client.post(f"/api/v1/projects/{pid}/keywords/enrich")
+    assert enriched.status_code == 200
+    assert all(k["volume"] is not None for k in enriched.json())
+
+    # SERP positions + backlinks (stub providers).
+    serp = await client.get(f"/api/v1/projects/{pid}/serp")
+    assert serp.status_code == 200 and len(serp.json()) == 2
+    bl = await client.get(f"/api/v1/projects/{pid}/backlinks")
+    assert bl.status_code == 200 and bl.json()["is_stub"] is True
+
+
 async def test_metrics_endpoint(client) -> None:
     resp = await client.get("/metrics")
     assert resp.status_code == 200

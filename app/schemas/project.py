@@ -87,6 +87,10 @@ class KeywordCreate(BaseModel):
     keywords: list[str] = Field(..., examples=[["seo audit", "technical seo"]])
 
 
+class GscImport(BaseModel):
+    csv: str = Field(..., description="Raw CSV text of a Google Search Console export.")
+
+
 class KeywordOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

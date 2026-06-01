@@ -60,6 +60,12 @@ class Settings(BaseSettings):
     cache_ttl_seconds: int = 86_400  # 24 hours
     cache_path: str = "audit_cache.sqlite3"  # used when backend == "sqlite"
 
+    # --- Data providers (Phase 6) ---
+    # "stub" until real API keys are configured (Semrush/Ahrefs/GSC/...).
+    keyword_provider: str = "stub"
+    serp_provider: str = "stub"
+    backlink_provider: str = "stub"
+
     # --- Knowledge graph / embeddings (Phase 3) ---
     # Embedding model for semantic clustering (requires `ollama pull`).
     # Off by default — clustering falls back to a deterministic lexical method.

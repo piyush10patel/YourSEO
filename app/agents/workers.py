@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from app.agents.base import Agent, AgentContext, AgentResult
 from app.db import repositories as repo
+from app.integrations.providers import get_backlink_provider
 
 # Recommendation types grouped by the agent that "owns" them.
 _LINKING_TYPES = {"orphan_page", "broken_link"}
@@ -191,16 +192,37 @@ class ContentAgent(Agent):
 
 class AuthorityAgent(Agent):
     name = "authority"
-    description = "Backlink / authority analysis (requires an external provider)."
+    description = "Backlink / authority analysis via the configured provider."
 
     async def run(self, ctx: AgentContext) -> AgentResult:
-        # Honest stub: backlink data needs Ahrefs/Semrush/etc. (not configured).
+        project = await repo.get_project(
+            ctx.session,
+            project_id=ctx.project_id,
+            organization_id=ctx.organization_id,
+        )
+        domain = (project.domain if project else None) or "unknown"
+        provider = get_backlink_provider(ctx.settings)
+        summary = provider.summary(domain)
+        is_stub = summary.get("is_stub", False)
+        # Stub data is illustrative only — keep confidence low and say so.
+        confidence = 0.3 if is_stub else 0.8
+        note = (
+            " (STUB data — connect a real provider for accurate numbers)"
+            if is_stub
+            else ""
+        )
         return self._result(
-            confidence=0.0,
-            impact=0.0,
-            rationale="Backlink and authority analysis requires an external data "
-            "provider (e.g. Ahrefs/Semrush), which is not configured.",
+            confidence=confidence,
+            impact=_cap(summary["referring_domains"] / 500),
+            rationale=f"{domain}: {summary['referring_domains']} referring domains, "
+            f"DR {summary['domain_rating']}{note}.",
+            evidence=[
+                f"referring_domains={summary['referring_domains']}",
+                f"total_backlinks={summary['total_backlinks']}",
+                f"domain_rating={summary['domain_rating']}",
+            ],
             recommendations=[
-                "Connect a backlink data provider to enable authority analysis."
+                "Pursue backlinks from authoritative, topically-relevant sites.",
+                "Reclaim lost/broken backlinks and unlinked brand mentions.",
             ],
         )

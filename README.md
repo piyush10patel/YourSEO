@@ -263,6 +263,8 @@ Base path: `/api/v1`
 | `POST` | `/projects/{id}/agents/{name}/run` · `/plan` | Run one agent, or the Planner to orchestrate the whole team into a roadmap |
 | `GET` | `/projects/{id}/report` | Executive report: SEO score trend, issue breakdown, KPIs |
 | `GET` | `/metrics` | Prometheus metrics (requests, latency, crawls, audits, agent runs) |
+| `POST` | `/projects/{id}/keywords/import-gsc` · `/enrich` | Import keywords from a GSC CSV; enrich with volume/difficulty/intent |
+| `GET` | `/projects/{id}/serp` · `/backlinks` | SERP positions & backlink summary (pluggable providers; stub by default) |
 
 **RBAC:** mutating endpoints require a role via the `X-User-Role` header
 (`viewer` < `editor` < `admin` < `owner`) — creating projects needs `admin`,

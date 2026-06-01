@@ -88,10 +88,12 @@ async def test_audit_agent_reads_persisted_findings(db_session) -> None:
     assert result.recommendations
 
 
-async def test_authority_agent_is_honest_stub(db_session) -> None:
+async def test_authority_agent_uses_stub_provider(db_session) -> None:
     ctx = await _seeded_ctx(db_session)
     result = await get_agent("authority").run(ctx)
-    assert result.confidence == 0.0  # no backlink provider configured
+    # Backlink provider is a stub -> low confidence, clearly flagged.
+    assert result.confidence == 0.3
+    assert "STUB" in result.rationale
 
 
 async def test_evaluator_ranks_by_confidence_times_impact() -> None:
