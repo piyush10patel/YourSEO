@@ -259,6 +259,8 @@ Base path: `/api/v1`
 | `POST` | `/projects/{id}/cluster` · `GET /clusters` | Cluster keywords into topics |
 | `POST` | `/projects/{id}/graph/build` · `GET /graph` | Build & read the knowledge graph (nodes + edges) |
 | `PATCH` | `/recommendations/{id}` | Update recommendation status (open/in_progress/done/dismissed) |
+| `GET` | `/agents` | List the specialized agents (audit, keyword, content, …, planner) |
+| `POST` | `/projects/{id}/agents/{name}/run` · `/plan` | Run one agent, or the Planner to orchestrate the whole team into a roadmap |
 
 **Run an audit:**
 

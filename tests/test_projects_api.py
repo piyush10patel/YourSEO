@@ -100,3 +100,30 @@ async def test_patch_unknown_recommendation_404(client) -> None:
         f"/api/v1/recommendations/{uuid.uuid4()}", json={"status": "done"}
     )
     assert resp.status_code == 404
+
+
+async def test_agents_list_run_and_plan(client) -> None:
+    agents = await client.get("/api/v1/agents")
+    assert agents.status_code == 200
+    names = {a["name"] for a in agents.json()}
+    assert "planner" in names and "audit" in names
+
+    pid = (await client.post("/api/v1/projects", json={"name": "Agent"})).json()["id"]
+    # Seed some keywords so agents have data to chew on.
+    await client.post(
+        f"/api/v1/projects/{pid}/keywords",
+        json={"keywords": ["seo audit", "seo report"]},
+    )
+    await client.post(f"/api/v1/projects/{pid}/cluster")
+
+    run = await client.post(f"/api/v1/projects/{pid}/agents/keyword/run")
+    assert run.status_code == 200
+    assert run.json()["agent"] == "keyword"
+
+    plan = await client.post(f"/api/v1/projects/{pid}/plan")
+    assert plan.status_code == 200
+    assert plan.json()["agent"] == "planner"
+
+    # Unknown agent -> 404
+    bad = await client.post(f"/api/v1/projects/{pid}/agents/nope/run")
+    assert bad.status_code == 404
