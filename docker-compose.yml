@@ -137,6 +137,17 @@ services:
       start_period: 20s
     restart: unless-stopped
 
+  web:
+    # Next.js frontend (consumes the API from the browser; CORS-enabled).
+    build: ./frontend
+    container_name: seo-web
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   redis_data:
   postgres_data:

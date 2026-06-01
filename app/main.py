@@ -15,6 +15,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -47,6 +48,15 @@ def create_app() -> FastAPI:
         version="0.1.0",
         description="Scrapes a URL and returns clean Markdown for SEO analysis.",
         lifespan=lifespan,
+    )
+
+    # Allow the Next.js frontend (and other configured origins) to call the API.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     # Observability: per-request metrics + Prometheus scrape endpoint.

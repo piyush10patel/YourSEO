@@ -49,6 +49,8 @@ class Settings(BaseSettings):
     # --- Infrastructure ---
     redis_url: str = "redis://localhost:6379/0"
     api_url: str = "http://localhost:8000"
+    # CORS origins allowed to call the API (the Next.js frontend).
+    cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
     # SQLAlchemy async URL. Compose overrides host to the `postgres` service;
     # local default targets the container on host port 5433 (5432 is commonly
     # taken by a local Postgres install).

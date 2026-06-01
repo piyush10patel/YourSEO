@@ -231,13 +231,17 @@ ollama pull llama3.2:3b
 # 4a. Run the API
 uvicorn app.main:app --reload             # http://127.0.0.1:8000/docs
 
-# 4b. Run the dashboard
+# 4b. Run the Streamlit dashboard (original single-page UI)
 streamlit run app/ui/streamlit_app.py     # http://localhost:8501
+
+# 4c. Run the Next.js frontend (SaaS UI)
+cd frontend && npm install && npm run dev  # http://localhost:3000 (API on :8080)
 ```
 
-> The dashboard ships with a **Demo mode** (sample data, no backend) so you can
-> explore the UI instantly. Toggle it off on the **Run Audit** page for a live
-> audit against a real URL + your local model.
+> The Streamlit dashboard ships with a **Demo mode** (sample data, no backend)
+> so you can explore it instantly. The **Next.js** app (`frontend/`) is the
+> multi-project SaaS UI that consumes the API — projects, reports,
+> recommendations, keyword clustering, and the agent Planner.
 
 ---
 
