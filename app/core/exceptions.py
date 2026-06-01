@@ -24,6 +24,13 @@ class AppError(Exception):
         self.detail = detail
 
 
+class NotFoundError(AppError):
+    """A requested resource does not exist (or isn't visible to this tenant)."""
+
+    status_code = 404
+    error_code = "not_found"
+
+
 # --------------------------------------------------------------------------- #
 # Scraper errors
 # --------------------------------------------------------------------------- #

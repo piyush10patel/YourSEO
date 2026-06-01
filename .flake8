@@ -13,4 +13,5 @@ exclude =
     __pycache__,
     .git,
     build,
-    dist
+    dist,
+    app/db/migrations/versions

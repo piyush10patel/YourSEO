@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     # --- Infrastructure ---
     redis_url: str = "redis://localhost:6379/0"
     api_url: str = "http://localhost:8000"
+    # SQLAlchemy async URL. Compose overrides host to the `postgres` service;
+    # local default targets the container on host port 5433 (5432 is commonly
+    # taken by a local Postgres install).
+    database_url: str = "postgresql+asyncpg://seo:seo@localhost:5433/seo"
 
     # --- Caching ---
     # Backend: "sqlite" (default, zero-config local file), "redis", or "none".

@@ -251,6 +251,9 @@ Base path: `/api/v1`
 | `POST` | `/scrape` | Fetch a URL → clean Markdown + metadata |
 | `POST` | `/audit` | Full SEO audit → structured `AuditResult` (cached) |
 | `POST` | `/audit/stream` | Same, but streams the executive summary via SSE |
+| `POST` | `/projects` · `GET` `/projects` | Create / list projects (multi-tenant, persisted) |
+| `POST` | `/projects/{id}/audit` | Run an audit for a project and **persist** it |
+| `GET` | `/projects/{id}/audits` · `/recommendations` | Read persisted audit history & prioritized recommendations |
 
 **Run an audit:**
 

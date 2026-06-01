@@ -14,6 +14,26 @@
 # SEO_OLLAMA_BASE_URL back to http://ollama:11434.
 
 services:
+  postgres:
+    # pgvector image so the Phase 3 knowledge graph can use vector columns.
+    image: pgvector/pgvector:pg16
+    container_name: seo-postgres
+    environment:
+      POSTGRES_USER: seo
+      POSTGRES_PASSWORD: seo
+      POSTGRES_DB: seo
+    ports:
+      # Host 5433 -> container 5432 (5432 is often taken by a local Postgres).
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   redis:
     image: redis:7-alpine
     container_name: seo-redis
@@ -39,6 +59,7 @@ services:
       SEO_OLLAMA_MODEL: "llama3.2:3b"
       SEO_REDIS_URL: "redis://redis:6379/0"
       SEO_CACHE_BACKEND: "redis"
+      SEO_DATABASE_URL: "postgresql+asyncpg://seo:seo@postgres:5432/seo"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -47,6 +68,8 @@ services:
     depends_on:
       redis:
         condition: service_started
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
   ui:
@@ -64,6 +87,7 @@ services:
       SEO_OLLAMA_MODEL: "llama3.2:3b"
       SEO_REDIS_URL: "redis://redis:6379/0"
       SEO_CACHE_BACKEND: "redis"
+      SEO_DATABASE_URL: "postgresql+asyncpg://seo:seo@postgres:5432/seo"
       SEO_API_URL: "http://api:8000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -88,3 +112,4 @@ services:
 
 volumes:
   redis_data:
+  postgres_data:

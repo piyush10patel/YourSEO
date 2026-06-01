@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Application code.
 COPY app ./app
-COPY README.md ./
+COPY README.md alembic.ini ./
 
 # Make the `app` package importable regardless of launcher. `uvicorn` adds the
 # CWD to sys.path, but `streamlit run <path>` does not — without this the
