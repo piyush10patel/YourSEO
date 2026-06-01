@@ -62,6 +62,26 @@ class Settings(BaseSettings):
     cache_ttl_seconds: int = 86_400  # 24 hours
     cache_path: str = "audit_cache.sqlite3"  # used when backend == "sqlite"
 
+    # --- Auth (Clerk) + billing (Stripe) — Phase 6, optional ---
+    # When these keys are blank the app runs in self-hosted dev mode
+    # (header-based role/org); set them to activate Clerk / Stripe.
+    clerk_jwks_url: str = (
+        ""  # e.g. https://<your-app>.clerk.accounts.dev/.well-known/jwks.json
+    )
+    clerk_issuer: str = ""
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_price_pro: str = ""
+    free_plan_max_projects: int = 3
+
+    @property
+    def clerk_enabled(self) -> bool:
+        return bool(self.clerk_jwks_url)
+
+    @property
+    def stripe_enabled(self) -> bool:
+        return bool(self.stripe_secret_key)
+
     # --- Data providers (Phase 6) ---
     # "stub" until real API keys are configured (Semrush/Ahrefs/GSC/...).
     keyword_provider: str = "stub"

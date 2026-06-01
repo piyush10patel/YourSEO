@@ -10,13 +10,13 @@ from __future__ import annotations
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings, get_settings
+from app.core.auth import Role, get_current_org_id, require_role
 from app.core.exceptions import NotFoundError
 from app.core.metrics import AUDITS, CRAWLS
-from app.core.rbac import Role, require_role
 from app.db import repositories as repo
 from app.db.base import get_session
 from app.schemas.audit import AuditRequest  # noqa: F401  (kept for symmetry)
@@ -39,7 +39,7 @@ from app.schemas.project import (
 )
 from app.integrations.gsc import parse_gsc_csv
 from app.integrations.providers import get_backlink_provider, get_serp_provider
-from app.services import clustering, enrichment, knowledge_graph, reporting
+from app.services import billing, clustering, enrichment, knowledge_graph, reporting
 from app.services import recommendations as rec_engine
 from app.services.audit import AuditResult, run_audit_async
 from app.services.audit_engine import run_project_crawl_audit
@@ -48,24 +48,6 @@ from app.services.persistence import persist_audit
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["projects"])
-
-
-async def get_current_org_id(
-    session: AsyncSession = Depends(get_session),
-    x_organization_id: str | None = Header(default=None),
-) -> uuid.UUID:
-    """Resolve the active organization (header override, else default org)."""
-    if x_organization_id:
-        try:
-            org_id = uuid.UUID(x_organization_id)
-        except ValueError as exc:
-            raise NotFoundError("Invalid X-Organization-Id.") from exc
-        org = await repo.get_organization(session, org_id)
-        if org is None:
-            raise NotFoundError(f"Organization {org_id} not found.")
-        return org.id
-    org = await repo.get_or_create_default_org(session)
-    return org.id
 
 
 async def _require_project(
@@ -86,6 +68,7 @@ async def create_project(
     org_id: uuid.UUID = Depends(get_current_org_id),
     _role: Role = Depends(require_role(Role.ADMIN)),
 ) -> ProjectOut:
+    await billing.enforce_project_limit(session, organization_id=org_id)
     project = await repo.create_project(
         session, organization_id=org_id, name=payload.name, domain=payload.domain
     )

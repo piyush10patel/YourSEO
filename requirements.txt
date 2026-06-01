@@ -22,6 +22,9 @@ celery==5.4.0
 pgvector==0.3.6
 # Observability (Phase 5)
 prometheus-client==0.21.1
+# Auth + billing (Phase 6); both optional, activated by env keys
+pyjwt[crypto]==2.10.1
+stripe==11.4.0
 # Content-encoding codecs so the browser-like Accept-Encoding header
 # (gzip, deflate, br, zstd) is actually decodable by urllib3.
 brotli==1.1.0

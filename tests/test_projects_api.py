@@ -163,6 +163,17 @@ async def test_gsc_import_enrich_serp_backlinks(client) -> None:
     assert bl.status_code == 200 and bl.json()["is_stub"] is True
 
 
+async def test_billing_plan_and_disabled_checkout(client) -> None:
+    plan = await client.get("/api/v1/billing/plan")
+    assert plan.status_code == 200
+    body = plan.json()
+    assert body["plan"] == "free" and body["billing_enabled"] is False
+    # Checkout with billing disabled -> structured error (not a crash).
+    checkout = await client.post("/api/v1/billing/checkout")
+    assert checkout.status_code == 422
+    assert checkout.json()["error_code"] == "bad_request"
+
+
 async def test_metrics_endpoint(client) -> None:
     resp = await client.get("/metrics")
     assert resp.status_code == 200

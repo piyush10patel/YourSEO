@@ -38,11 +38,25 @@ class BadRequestError(AppError):
     error_code = "bad_request"
 
 
+class UnauthorizedError(AppError):
+    """Authentication is required or the token is invalid (Clerk)."""
+
+    status_code = 401
+    error_code = "unauthorized"
+
+
 class ForbiddenError(AppError):
     """The caller's role lacks permission for this action (RBAC)."""
 
     status_code = 403
     error_code = "forbidden"
+
+
+class PaymentRequiredError(AppError):
+    """A plan limit was exceeded (Stripe billing)."""
+
+    status_code = 402
+    error_code = "plan_limit_exceeded"
 
 
 # --------------------------------------------------------------------------- #

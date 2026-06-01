@@ -45,6 +45,21 @@ async def get_organization(
     return await session.get(Organization, org_id)
 
 
+async def get_or_create_org_by_clerk(
+    session: AsyncSession, clerk_org_id: str, *, name: str = "Organization"
+) -> Organization:
+    """Map a Clerk organization id to our Organization (create on first sight)."""
+    result = await session.execute(
+        select(Organization).where(Organization.clerk_org_id == clerk_org_id).limit(1)
+    )
+    org = result.scalar_one_or_none()
+    if org is None:
+        org = Organization(name=name, clerk_org_id=clerk_org_id)
+        session.add(org)
+        await session.flush()
+    return org
+
+
 async def get_or_create_default_org(session: AsyncSession) -> Organization:
     """Bootstrap org used until real auth (Clerk) is wired in."""
     result = await session.execute(

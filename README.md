@@ -269,6 +269,14 @@ Base path: `/api/v1`
 | `GET` | `/metrics` | Prometheus metrics (requests, latency, crawls, audits, agent runs) |
 | `POST` | `/projects/{id}/keywords/import-gsc` · `/enrich` | Import keywords from a GSC CSV; enrich with volume/difficulty/intent |
 | `GET` | `/projects/{id}/serp` · `/backlinks` | SERP positions & backlink summary (pluggable providers; stub by default) |
+| `GET`/`POST` | `/billing/plan` · `/billing/checkout` · `/billing/webhook` | Stripe billing (disabled gracefully until keys are set) |
+
+**Auth & billing (optional):** Clerk and Stripe activate when their keys are
+set (`SEO_CLERK_JWKS_URL`, `SEO_STRIPE_SECRET_KEY`). With Clerk on, requests
+authenticate via `Authorization: Bearer <jwt>` and org+role come from token
+claims; with it off, the dev `X-User-Role`/`X-Organization-Id` headers are used.
+Both flow through one `get_auth_context` seam, so endpoints are unchanged either
+way. Billing off ⇒ everyone is on the free plan with no limits.
 
 **RBAC:** mutating endpoints require a role via the `X-User-Role` header
 (`viewer` < `editor` < `admin` < `owner`) — creating projects needs `admin`,

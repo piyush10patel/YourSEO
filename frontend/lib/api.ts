@@ -17,10 +17,22 @@ import type {
 const BASE =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:8080";
 
+// Clerk seam: when Clerk is wired, call setAuthToken(await getToken()) so the
+// API client sends "Authorization: Bearer <jwt>". Until then it's unset and the
+// backend runs in dev mode (owner / default org).
+let authToken: string | null = null;
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}/api/v1${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      ...(init?.headers ?? {}),
+    },
     cache: "no-store",
   });
   if (!res.ok) {

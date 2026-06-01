@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.agents import router as agents_router
+from app.api.billing import router as billing_router
 from app.api.projects import router as projects_router
 from app.api.routes import router
 from app.config import get_settings
@@ -70,6 +71,7 @@ def create_app() -> FastAPI:
     app.include_router(router, prefix="/api/v1")
     app.include_router(projects_router, prefix="/api/v1")
     app.include_router(agents_router, prefix="/api/v1")
+    app.include_router(billing_router, prefix="/api/v1")
     _register_exception_handlers(app)
     return app
 

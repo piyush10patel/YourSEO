@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 
+from app.core.auth import AuthContext, Role, parse_role, require_role
 from app.core.exceptions import BadRequestError, ForbiddenError
-from app.core.rbac import Role, parse_role, require_role
+
+
+def _ctx(role: Role) -> AuthContext:
+    return AuthContext(org_id=uuid.uuid4(), role=role)
 
 
 def test_role_ordering() -> None:
@@ -18,14 +24,14 @@ def test_parse_role_valid_and_invalid() -> None:
         parse_role("superuser")
 
 
-def test_require_role_allows_equal_or_higher() -> None:
+async def test_require_role_allows_equal_or_higher() -> None:
     dep = require_role(Role.EDITOR)
-    assert dep("editor") is Role.EDITOR
-    assert dep("admin") is Role.ADMIN
-    assert dep("owner") is Role.OWNER
+    assert await dep(_ctx(Role.EDITOR)) is Role.EDITOR
+    assert await dep(_ctx(Role.ADMIN)) is Role.ADMIN
+    assert await dep(_ctx(Role.OWNER)) is Role.OWNER
 
 
-def test_require_role_denies_lower() -> None:
+async def test_require_role_denies_lower() -> None:
     dep = require_role(Role.EDITOR)
     with pytest.raises(ForbiddenError):
-        dep("viewer")
+        await dep(_ctx(Role.VIEWER))

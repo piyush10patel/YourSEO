@@ -54,6 +54,9 @@ class Organization(Base, TimestampMixin):
     id: Mapped[uuid.UUID] = _pk()
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     plan: Mapped[str] = mapped_column(String(50), default="free", nullable=False)
+    # External identity / billing mapping (set when Clerk/Stripe are enabled).
+    clerk_org_id: Mapped[str | None] = mapped_column(String(255), unique=True)
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(255))
 
     projects: Mapped[list["Project"]] = relationship(
         back_populates="organization", cascade="all, delete-orphan"
