@@ -1,0 +1,20 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+requests==2.32.3
+httpx==0.28.1
+beautifulsoup4==4.12.3
+lxml==5.3.0
+markdownify==0.14.1
+tenacity==9.0.0
+streamlit==1.41.1
+redis==5.2.1
+fpdf2==2.8.2
+# Content-encoding codecs so the browser-like Accept-Encoding header
+# (gzip, deflate, br, zstd) is actually decodable by urllib3.
+brotli==1.1.0
+zstandard==0.23.0
+# Headless-browser fallback for JavaScript-rendered (SPA) pages.
+# After installing, run: python -m playwright install chromium
+playwright==1.49.0

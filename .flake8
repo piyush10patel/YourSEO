@@ -1,0 +1,16 @@
+[flake8]
+# Black is the formatter of record and owns line length (88). flake8 focuses
+# on logical lint, so we don't double-enforce length here.
+max-line-length = 88
+# Black-compatible ignores:
+#   E203 - whitespace before ':' (black formats slices this way)
+#   W503 - line break before binary operator (black's preferred style)
+#   E501 - line too long (black manages wrapping; only long string literals remain)
+extend-ignore = E203, W503, E501
+exclude =
+    .venv,
+    venv,
+    __pycache__,
+    .git,
+    build,
+    dist

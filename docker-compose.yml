@@ -1,0 +1,90 @@
+# Local stack: API + UI + Redis, using the HOST's Ollama (GPU-capable).
+#
+#   docker compose up --build
+#
+# API  -> http://localhost:8000/docs
+# UI   -> http://localhost:8501
+#
+# The api/ui containers reach the Ollama you run natively on the host via
+# `host.docker.internal`. Make sure `ollama serve` is running on the host and
+# `ollama pull llama3.2:3b` has been done.
+#
+# To instead run a fully self-contained, bundled Ollama (CPU-only), add an
+# `ollama` service (image: ollama/ollama) and set the api/ui
+# SEO_OLLAMA_BASE_URL back to http://ollama:11434.
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: seo-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    build: .
+    container_name: seo-api
+    command:
+      ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      SEO_OLLAMA_BASE_URL: "http://host.docker.internal:11434"
+      SEO_OLLAMA_MODEL: "llama3.2:3b"
+      SEO_REDIS_URL: "redis://redis:6379/0"
+      SEO_CACHE_BACKEND: "redis"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      # Host 8080 -> container 8000 (8000 is often taken by a local dev server).
+      - "8080:8000"
+    depends_on:
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  ui:
+    build: .
+    container_name: seo-ui
+    command:
+      - "streamlit"
+      - "run"
+      - "app/ui/streamlit_app.py"
+      - "--server.port=8501"
+      - "--server.address=0.0.0.0"
+      - "--server.headless=true"
+    environment:
+      SEO_OLLAMA_BASE_URL: "http://host.docker.internal:11434"
+      SEO_OLLAMA_MODEL: "llama3.2:3b"
+      SEO_REDIS_URL: "redis://redis:6379/0"
+      SEO_CACHE_BACKEND: "redis"
+      SEO_API_URL: "http://api:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8501:8501"
+    depends_on:
+      api:
+        condition: service_started
+    # Override the image's API-oriented HEALTHCHECK: this container runs
+    # Streamlit on 8501, not the API on 8000.
+    healthcheck:
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8501/_stcore/health').status==200 else 1)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  redis_data:
