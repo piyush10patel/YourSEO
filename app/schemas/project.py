@@ -115,3 +115,17 @@ class RecommendationStatusUpdate(BaseModel):
 class GraphResponse(BaseModel):
     nodes: list[dict]
     edges: list[dict]
+
+
+class ReportResponse(BaseModel):
+    project: dict
+    seo_score: int | None
+    grade: str | None
+    score_trend: list[int]
+    pages: int
+    keywords: int
+    clusters: int
+    recommendations_by_status: dict[str, int]
+    issues_by_type: dict[str, int]
+    kpis: dict
+    generated_at: str

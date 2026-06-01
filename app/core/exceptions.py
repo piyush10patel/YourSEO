@@ -38,6 +38,13 @@ class BadRequestError(AppError):
     error_code = "bad_request"
 
 
+class ForbiddenError(AppError):
+    """The caller's role lacks permission for this action (RBAC)."""
+
+    status_code = 403
+    error_code = "forbidden"
+
+
 # --------------------------------------------------------------------------- #
 # Scraper errors
 # --------------------------------------------------------------------------- #

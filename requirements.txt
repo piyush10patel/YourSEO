@@ -20,6 +20,8 @@ aiosqlite==0.20.0
 celery==5.4.0
 # Knowledge graph vectors (Phase 3); column degrades to JSON on SQLite
 pgvector==0.3.6
+# Observability (Phase 5)
+prometheus-client==0.21.1
 # Content-encoding codecs so the browser-like Accept-Encoding header
 # (gzip, deflate, br, zstd) is actually decodable by urllib3.
 brotli==1.1.0

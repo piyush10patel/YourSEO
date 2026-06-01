@@ -102,6 +102,56 @@ async def test_patch_unknown_recommendation_404(client) -> None:
     assert resp.status_code == 404
 
 
+async def test_rbac_blocks_low_roles(client) -> None:
+    # Creating a project requires admin+.
+    viewer = await client.post(
+        "/api/v1/projects", json={"name": "X"}, headers={"X-User-Role": "viewer"}
+    )
+    assert viewer.status_code == 403
+    assert viewer.json()["error_code"] == "forbidden"
+
+    editor = await client.post(
+        "/api/v1/projects", json={"name": "X"}, headers={"X-User-Role": "editor"}
+    )
+    assert editor.status_code == 403  # editor < admin
+
+    admin = await client.post(
+        "/api/v1/projects", json={"name": "X"}, headers={"X-User-Role": "admin"}
+    )
+    assert admin.status_code == 200
+
+
+async def test_rbac_viewer_cannot_mutate_but_can_read(client) -> None:
+    pid = (await client.post("/api/v1/projects", json={"name": "R"})).json()["id"]
+    # Viewer can read...
+    assert (
+        await client.get(f"/api/v1/projects/{pid}/recommendations")
+    ).status_code == 200
+    # ...but cannot add keywords (editor+).
+    blocked = await client.post(
+        f"/api/v1/projects/{pid}/keywords",
+        json={"keywords": ["x"]},
+        headers={"X-User-Role": "viewer"},
+    )
+    assert blocked.status_code == 403
+
+
+async def test_metrics_endpoint(client) -> None:
+    resp = await client.get("/metrics")
+    assert resp.status_code == 200
+    assert "seoos_requests_total" in resp.text
+
+
+async def test_project_report(client) -> None:
+    pid = (await client.post("/api/v1/projects", json={"name": "Rep"})).json()["id"]
+    resp = await client.get(f"/api/v1/projects/{pid}/report")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["seo_score"] is None  # no audit yet
+    assert body["kpis"]["traffic"] is None and "note" in body["kpis"]
+    assert body["pages"] == 0
+
+
 async def test_agents_list_run_and_plan(client) -> None:
     agents = await client.get("/api/v1/agents")
     assert agents.status_code == 200

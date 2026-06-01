@@ -13,6 +13,8 @@ from app.agents.registry import get_agent, list_agents
 from app.api.projects import get_current_org_id
 from app.config import Settings, get_settings
 from app.core.exceptions import NotFoundError
+from app.core.metrics import AGENT_RUNS
+from app.core.rbac import Role, require_role
 from app.db import repositories as repo
 from app.db.base import get_session
 
@@ -58,9 +60,11 @@ async def run_agent(
     session: AsyncSession = Depends(get_session),
     org_id: uuid.UUID = Depends(get_current_org_id),
     settings: Settings = Depends(get_settings),
+    _role: Role = Depends(require_role(Role.EDITOR)),
 ) -> AgentResult:
     ctx = await _ctx(project_id, session, org_id, settings)
     agent = get_agent(agent_name)
+    AGENT_RUNS.labels(agent_name).inc()
     return await agent.run(ctx)
 
 
@@ -74,6 +78,8 @@ async def run_plan(
     session: AsyncSession = Depends(get_session),
     org_id: uuid.UUID = Depends(get_current_org_id),
     settings: Settings = Depends(get_settings),
+    _role: Role = Depends(require_role(Role.EDITOR)),
 ) -> AgentResult:
     ctx = await _ctx(project_id, session, org_id, settings)
+    AGENT_RUNS.labels("planner").inc()
     return await get_agent("planner").run(ctx)

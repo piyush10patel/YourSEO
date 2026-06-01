@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.agents import router as agents_router
@@ -24,6 +24,7 @@ from app.api.routes import router
 from app.config import get_settings
 from app.core.exceptions import AppError
 from app.core.logging import configure_logging
+from app.core.metrics import metrics_middleware, metrics_response
 from app.schemas.scrape import ErrorResponse
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,14 @@ def create_app() -> FastAPI:
         description="Scrapes a URL and returns clean Markdown for SEO analysis.",
         lifespan=lifespan,
     )
+
+    # Observability: per-request metrics + Prometheus scrape endpoint.
+    app.middleware("http")(metrics_middleware)
+
+    async def metrics_endpoint() -> Response:
+        return metrics_response()
+
+    app.add_api_route("/metrics", metrics_endpoint, include_in_schema=False)
 
     app.include_router(router, prefix="/api/v1")
     app.include_router(projects_router, prefix="/api/v1")

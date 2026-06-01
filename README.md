@@ -261,6 +261,13 @@ Base path: `/api/v1`
 | `PATCH` | `/recommendations/{id}` | Update recommendation status (open/in_progress/done/dismissed) |
 | `GET` | `/agents` | List the specialized agents (audit, keyword, content, …, planner) |
 | `POST` | `/projects/{id}/agents/{name}/run` · `/plan` | Run one agent, or the Planner to orchestrate the whole team into a roadmap |
+| `GET` | `/projects/{id}/report` | Executive report: SEO score trend, issue breakdown, KPIs |
+| `GET` | `/metrics` | Prometheus metrics (requests, latency, crawls, audits, agent runs) |
+
+**RBAC:** mutating endpoints require a role via the `X-User-Role` header
+(`viewer` < `editor` < `admin` < `owner`) — creating projects needs `admin`,
+other writes need `editor`, reads are open. (This is the seam where Clerk auth
+plugs in.)
 
 **Run an audit:**
 

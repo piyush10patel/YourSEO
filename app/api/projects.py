@@ -15,6 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings, get_settings
 from app.core.exceptions import NotFoundError
+from app.core.metrics import AUDITS, CRAWLS
+from app.core.rbac import Role, require_role
 from app.db import repositories as repo
 from app.db.base import get_session
 from app.schemas.audit import AuditRequest  # noqa: F401  (kept for symmetry)
@@ -32,8 +34,9 @@ from app.schemas.project import (
     ProjectOut,
     RecommendationOut,
     RecommendationStatusUpdate,
+    ReportResponse,
 )
-from app.services import clustering, knowledge_graph
+from app.services import clustering, knowledge_graph, reporting
 from app.services import recommendations as rec_engine
 from app.services.audit import AuditResult, run_audit_async
 from app.services.audit_engine import run_project_crawl_audit
@@ -78,6 +81,7 @@ async def create_project(
     payload: ProjectCreate,
     session: AsyncSession = Depends(get_session),
     org_id: uuid.UUID = Depends(get_current_org_id),
+    _role: Role = Depends(require_role(Role.ADMIN)),
 ) -> ProjectOut:
     project = await repo.create_project(
         session, organization_id=org_id, name=payload.name, domain=payload.domain
@@ -145,6 +149,7 @@ async def run_project_audit(
     session: AsyncSession = Depends(get_session),
     org_id: uuid.UUID = Depends(get_current_org_id),
     settings: Settings = Depends(get_settings),
+    _role: Role = Depends(require_role(Role.EDITOR)),
 ) -> AuditResult:
     await _require_project(session, project_id, org_id)
     render_js: bool | str = "auto" if payload.render_js else False
@@ -157,6 +162,7 @@ async def run_project_audit(
     await persist_audit(
         session, organization_id=org_id, project_id=project_id, result=result
     )
+    AUDITS.inc()
     return result
 
 
@@ -177,6 +183,22 @@ async def list_project_pages(
     return [PageOut.model_validate(p) for p in pages]
 
 
+@router.get(
+    "/projects/{project_id}/report",
+    response_model=ReportResponse,
+    summary="Executive report: score trend, issue breakdown, KPIs",
+)
+async def project_report(
+    project_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    org_id: uuid.UUID = Depends(get_current_org_id),
+) -> ReportResponse:
+    report = await reporting.build_report(
+        session, organization_id=org_id, project_id=project_id
+    )
+    return ReportResponse(**report)
+
+
 @router.post(
     "/projects/{project_id}/crawl",
     response_model=CrawlResponse,
@@ -188,8 +210,10 @@ async def crawl_project(
     session: AsyncSession = Depends(get_session),
     org_id: uuid.UUID = Depends(get_current_org_id),
     settings: Settings = Depends(get_settings),
+    _role: Role = Depends(require_role(Role.EDITOR)),
 ) -> CrawlResponse:
     await _require_project(session, project_id, org_id)
+    CRAWLS.inc()
 
     if settings.crawl_dispatch == "celery":
         # Enqueue for the worker; returns immediately.
@@ -226,6 +250,7 @@ async def add_keywords(
     payload: KeywordCreate,
     session: AsyncSession = Depends(get_session),
     org_id: uuid.UUID = Depends(get_current_org_id),
+    _role: Role = Depends(require_role(Role.EDITOR)),
 ) -> list[KeywordOut]:
     await _require_project(session, project_id, org_id)
     created = await repo.add_keywords(
@@ -260,6 +285,7 @@ async def cluster_project_keywords(
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     org_id: uuid.UUID = Depends(get_current_org_id),
+    _role: Role = Depends(require_role(Role.EDITOR)),
 ) -> list[ClusterOut]:
     clusters = await clustering.cluster_keywords(
         session, project_id=project_id, organization_id=org_id
@@ -292,6 +318,7 @@ async def build_project_graph(
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     org_id: uuid.UUID = Depends(get_current_org_id),
+    _role: Role = Depends(require_role(Role.EDITOR)),
 ) -> dict[str, int]:
     edges = await knowledge_graph.build_graph(
         session, project_id=project_id, organization_id=org_id
@@ -325,6 +352,7 @@ async def update_recommendation(
     payload: RecommendationStatusUpdate,
     session: AsyncSession = Depends(get_session),
     org_id: uuid.UUID = Depends(get_current_org_id),
+    _role: Role = Depends(require_role(Role.EDITOR)),
 ) -> RecommendationOut:
     rec = await rec_engine.set_status(
         session, rec_id=rec_id, organization_id=org_id, status=payload.status
