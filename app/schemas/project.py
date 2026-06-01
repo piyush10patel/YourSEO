@@ -56,3 +56,28 @@ class ProjectAuditRequest(BaseModel):
     url: AnyHttpUrl
     render_js: bool = True
     use_cache: bool = True
+
+
+class PageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    project_id: uuid.UUID
+    url: str
+    title: str | None
+    meta_description: str | None
+    status_code: int | None
+    word_count: int | None
+    created_at: datetime
+
+
+class CrawlRequest(BaseModel):
+    seed_url: AnyHttpUrl = Field(..., examples=["https://example.com"])
+    max_pages: int | None = Field(default=None, ge=1, le=500)
+    max_depth: int | None = Field(default=None, ge=0, le=10)
+
+
+class CrawlResponse(BaseModel):
+    mode: str  # "inline" | "queued"
+    audit: AuditOut | None = None
+    task_id: str | None = None

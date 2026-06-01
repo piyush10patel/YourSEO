@@ -20,12 +20,16 @@ from app.db.base import get_session
 from app.schemas.audit import AuditRequest  # noqa: F401  (kept for symmetry)
 from app.schemas.project import (
     AuditOut,
+    CrawlRequest,
+    CrawlResponse,
+    PageOut,
     ProjectAuditRequest,
     ProjectCreate,
     ProjectOut,
     RecommendationOut,
 )
 from app.services.audit import AuditResult, run_audit_async
+from app.services.audit_engine import run_project_crawl_audit
 from app.services.persistence import persist_audit
 
 logger = logging.getLogger(__name__)
@@ -141,3 +145,56 @@ async def run_project_audit(
         session, organization_id=org_id, project_id=project_id, result=result
     )
     return result
+
+
+@router.get(
+    "/projects/{project_id}/pages",
+    response_model=list[PageOut],
+    summary="List crawled pages for a project",
+)
+async def list_project_pages(
+    project_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    org_id: uuid.UUID = Depends(get_current_org_id),
+) -> list[PageOut]:
+    await _require_project(session, project_id, org_id)
+    pages = await repo.list_pages(
+        session, project_id=project_id, organization_id=org_id
+    )
+    return [PageOut.model_validate(p) for p in pages]
+
+
+@router.post(
+    "/projects/{project_id}/crawl",
+    response_model=CrawlResponse,
+    summary="Crawl a whole site, audit it, and persist pages + findings",
+)
+async def crawl_project(
+    project_id: uuid.UUID,
+    payload: CrawlRequest,
+    session: AsyncSession = Depends(get_session),
+    org_id: uuid.UUID = Depends(get_current_org_id),
+    settings: Settings = Depends(get_settings),
+) -> CrawlResponse:
+    await _require_project(session, project_id, org_id)
+
+    if settings.crawl_dispatch == "celery":
+        # Enqueue for the worker; returns immediately.
+        from app.worker import crawl_audit_task
+
+        task = crawl_audit_task.delay(
+            str(org_id), str(project_id), str(payload.seed_url)
+        )
+        return CrawlResponse(mode="queued", task_id=task.id)
+
+    # Inline: crawl + audit within the request (good for dev / small sites).
+    audit = await run_project_crawl_audit(
+        session,
+        organization_id=org_id,
+        project_id=project_id,
+        seed_url=str(payload.seed_url),
+        settings=settings,
+        max_pages=payload.max_pages,
+        max_depth=payload.max_depth,
+    )
+    return CrawlResponse(mode="inline", audit=AuditOut.model_validate(audit))

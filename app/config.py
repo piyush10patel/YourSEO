@@ -60,6 +60,14 @@ class Settings(BaseSettings):
     cache_ttl_seconds: int = 86_400  # 24 hours
     cache_path: str = "audit_cache.sqlite3"  # used when backend == "sqlite"
 
+    # --- Crawl & queue (Phase 2) ---
+    crawl_max_pages: int = 50
+    crawl_max_depth: int = 3
+    crawl_concurrency: int = 5
+    # How POST /projects/{id}/crawl runs: "inline" (in-request) or "celery".
+    crawl_dispatch: str = "inline"
+    thin_content_words: int = 150  # below this a page is flagged thin
+
     # --- Agent / ReAct loop ---
     agent_max_steps: int = 8  # hard cap on tool-use iterations
     agent_temperature: float = 0.1  # low temp = more deterministic tool choices

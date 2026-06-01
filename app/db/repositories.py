@@ -15,8 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import (
     Audit,
     Organization,
-    Project,
     Page,
+    Project,
     Recommendation,
 )
 
@@ -167,6 +167,19 @@ async def add_recommendation(
     session.add(rec)
     await session.flush()
     return rec
+
+
+async def list_pages(
+    session: AsyncSession, *, project_id: uuid.UUID, organization_id: uuid.UUID
+) -> list[Page]:
+    if not await get_project(
+        session, project_id=project_id, organization_id=organization_id
+    ):
+        return []
+    result = await session.execute(
+        select(Page).where(Page.project_id == project_id).order_by(Page.url)
+    )
+    return list(result.scalars().all())
 
 
 async def list_audits(

@@ -72,6 +72,33 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  worker:
+    # Celery worker for crawl/audit jobs. Only used when an audit is dispatched
+    # with SEO_CRAWL_DISPATCH=celery; otherwise it sits idle (crawl runs inline).
+    build: .
+    container_name: seo-worker
+    command: ["celery", "-A", "app.worker.celery", "worker", "--loglevel=info", "-Q", "crawl"]
+    environment:
+      SEO_OLLAMA_BASE_URL: "http://host.docker.internal:11434"
+      SEO_OLLAMA_MODEL: "llama3.2:3b"
+      SEO_REDIS_URL: "redis://redis:6379/0"
+      SEO_DATABASE_URL: "postgresql+asyncpg://seo:seo@postgres:5432/seo"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    # Override the image's API-oriented HEALTHCHECK with a Celery ping.
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.worker.celery inspect ping -t 5 >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 25s
+    restart: unless-stopped
+
   ui:
     build: .
     container_name: seo-ui

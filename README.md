@@ -253,7 +253,8 @@ Base path: `/api/v1`
 | `POST` | `/audit/stream` | Same, but streams the executive summary via SSE |
 | `POST` | `/projects` · `GET` `/projects` | Create / list projects (multi-tenant, persisted) |
 | `POST` | `/projects/{id}/audit` | Run an audit for a project and **persist** it |
-| `GET` | `/projects/{id}/audits` · `/recommendations` | Read persisted audit history & prioritized recommendations |
+| `POST` | `/projects/{id}/crawl` | Crawl a whole site, audit it, persist pages + findings |
+| `GET` | `/projects/{id}/audits` · `/recommendations` · `/pages` | Read persisted history, prioritized recommendations & crawled pages |
 
 **Run an audit:**
 
