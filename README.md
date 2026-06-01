@@ -255,6 +255,10 @@ Base path: `/api/v1`
 | `POST` | `/projects/{id}/audit` | Run an audit for a project and **persist** it |
 | `POST` | `/projects/{id}/crawl` | Crawl a whole site, audit it, persist pages + findings |
 | `GET` | `/projects/{id}/audits` · `/recommendations` · `/pages` | Read persisted history, prioritized recommendations & crawled pages |
+| `POST`/`GET` | `/projects/{id}/keywords` | Add (manual/CSV) & list keywords |
+| `POST` | `/projects/{id}/cluster` · `GET /clusters` | Cluster keywords into topics |
+| `POST` | `/projects/{id}/graph/build` · `GET /graph` | Build & read the knowledge graph (nodes + edges) |
+| `PATCH` | `/recommendations/{id}` | Update recommendation status (open/in_progress/done/dismissed) |
 
 **Run an audit:**
 

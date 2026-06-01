@@ -20,14 +20,21 @@ from app.db.base import get_session
 from app.schemas.audit import AuditRequest  # noqa: F401  (kept for symmetry)
 from app.schemas.project import (
     AuditOut,
+    ClusterOut,
     CrawlRequest,
     CrawlResponse,
+    GraphResponse,
+    KeywordCreate,
+    KeywordOut,
     PageOut,
     ProjectAuditRequest,
     ProjectCreate,
     ProjectOut,
     RecommendationOut,
+    RecommendationStatusUpdate,
 )
+from app.services import clustering, knowledge_graph
+from app.services import recommendations as rec_engine
 from app.services.audit import AuditResult, run_audit_async
 from app.services.audit_engine import run_project_crawl_audit
 from app.services.persistence import persist_audit
@@ -111,12 +118,18 @@ async def list_project_audits(
 )
 async def list_project_recommendations(
     project_id: uuid.UUID,
+    status: str | None = None,
+    type: str | None = None,
     session: AsyncSession = Depends(get_session),
     org_id: uuid.UUID = Depends(get_current_org_id),
 ) -> list[RecommendationOut]:
     await _require_project(session, project_id, org_id)
     recs = await repo.list_recommendations(
-        session, project_id=project_id, organization_id=org_id
+        session,
+        project_id=project_id,
+        organization_id=org_id,
+        status=status,
+        type=type,
     )
     return [RecommendationOut.model_validate(r) for r in recs]
 
@@ -198,3 +211,122 @@ async def crawl_project(
         max_depth=payload.max_depth,
     )
     return CrawlResponse(mode="inline", audit=AuditOut.model_validate(audit))
+
+
+# --------------------------------------------------------------------------- #
+# Keywords, clustering, knowledge graph (Phase 3)
+# --------------------------------------------------------------------------- #
+@router.post(
+    "/projects/{project_id}/keywords",
+    response_model=list[KeywordOut],
+    summary="Add keywords to a project (manual / CSV-paste; dedupes)",
+)
+async def add_keywords(
+    project_id: uuid.UUID,
+    payload: KeywordCreate,
+    session: AsyncSession = Depends(get_session),
+    org_id: uuid.UUID = Depends(get_current_org_id),
+) -> list[KeywordOut]:
+    await _require_project(session, project_id, org_id)
+    created = await repo.add_keywords(
+        session, project_id=project_id, keywords=payload.keywords
+    )
+    return [KeywordOut.model_validate(k) for k in created]
+
+
+@router.get(
+    "/projects/{project_id}/keywords",
+    response_model=list[KeywordOut],
+    summary="List a project's keywords",
+)
+async def list_keywords(
+    project_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    org_id: uuid.UUID = Depends(get_current_org_id),
+) -> list[KeywordOut]:
+    await _require_project(session, project_id, org_id)
+    kws = await repo.list_keywords(
+        session, project_id=project_id, organization_id=org_id
+    )
+    return [KeywordOut.model_validate(k) for k in kws]
+
+
+@router.post(
+    "/projects/{project_id}/cluster",
+    response_model=list[ClusterOut],
+    summary="Cluster the project's keywords into topics",
+)
+async def cluster_project_keywords(
+    project_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    org_id: uuid.UUID = Depends(get_current_org_id),
+) -> list[ClusterOut]:
+    clusters = await clustering.cluster_keywords(
+        session, project_id=project_id, organization_id=org_id
+    )
+    return [ClusterOut.model_validate(c) for c in clusters]
+
+
+@router.get(
+    "/projects/{project_id}/clusters",
+    response_model=list[ClusterOut],
+    summary="List a project's topic clusters",
+)
+async def list_clusters(
+    project_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    org_id: uuid.UUID = Depends(get_current_org_id),
+) -> list[ClusterOut]:
+    await _require_project(session, project_id, org_id)
+    clusters = await repo.list_clusters(
+        session, project_id=project_id, organization_id=org_id
+    )
+    return [ClusterOut.model_validate(c) for c in clusters]
+
+
+@router.post(
+    "/projects/{project_id}/graph/build",
+    summary="(Re)build the project's knowledge graph",
+)
+async def build_project_graph(
+    project_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    org_id: uuid.UUID = Depends(get_current_org_id),
+) -> dict[str, int]:
+    edges = await knowledge_graph.build_graph(
+        session, project_id=project_id, organization_id=org_id
+    )
+    return {"edges": edges}
+
+
+@router.get(
+    "/projects/{project_id}/graph",
+    response_model=GraphResponse,
+    summary="Get the project's knowledge graph (nodes + edges)",
+)
+async def get_project_graph(
+    project_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    org_id: uuid.UUID = Depends(get_current_org_id),
+) -> GraphResponse:
+    graph = await knowledge_graph.get_graph(
+        session, project_id=project_id, organization_id=org_id
+    )
+    return GraphResponse(**graph)
+
+
+@router.patch(
+    "/recommendations/{rec_id}",
+    response_model=RecommendationOut,
+    summary="Update a recommendation's status (open/in_progress/done/dismissed)",
+)
+async def update_recommendation(
+    rec_id: uuid.UUID,
+    payload: RecommendationStatusUpdate,
+    session: AsyncSession = Depends(get_session),
+    org_id: uuid.UUID = Depends(get_current_org_id),
+) -> RecommendationOut:
+    rec = await rec_engine.set_status(
+        session, rec_id=rec_id, organization_id=org_id, status=payload.status
+    )
+    return RecommendationOut.model_validate(rec)

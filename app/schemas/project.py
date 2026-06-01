@@ -81,3 +81,37 @@ class CrawlResponse(BaseModel):
     mode: str  # "inline" | "queued"
     audit: AuditOut | None = None
     task_id: str | None = None
+
+
+class KeywordCreate(BaseModel):
+    keywords: list[str] = Field(..., examples=[["seo audit", "technical seo"]])
+
+
+class KeywordOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    project_id: uuid.UUID
+    keyword: str
+    volume: int | None
+    difficulty: float | None
+    intent: str | None
+    cluster_id: uuid.UUID | None
+
+
+class ClusterOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    project_id: uuid.UUID
+    topic: str
+    topic_id: uuid.UUID | None
+
+
+class RecommendationStatusUpdate(BaseModel):
+    status: str = Field(..., examples=["in_progress", "done", "dismissed"])
+
+
+class GraphResponse(BaseModel):
+    nodes: list[dict]
+    edges: list[dict]

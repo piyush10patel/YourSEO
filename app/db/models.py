@@ -14,7 +14,9 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
+    JSON,
     DateTime,
     Float,
     ForeignKey,
@@ -28,6 +30,12 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+# Embedding dimension for the knowledge graph (nomic-embed-text = 768).
+EMBED_DIM = 768
+
+# Real pgvector column on Postgres; portable JSON fallback on SQLite (tests).
+_EMBEDDING = Vector(EMBED_DIM).with_variant(JSON(), "sqlite")
 
 
 def _pk() -> Mapped[uuid.UUID]:
@@ -109,6 +117,7 @@ class Page(Base, TimestampMixin):
 
 class Keyword(Base, TimestampMixin):
     __tablename__ = "keywords"
+    __table_args__ = (UniqueConstraint("project_id", "keyword"),)
 
     id: Mapped[uuid.UUID] = _pk()
     project_id: Mapped[uuid.UUID] = mapped_column(
@@ -118,6 +127,21 @@ class Keyword(Base, TimestampMixin):
     volume: Mapped[int | None] = mapped_column(Integer)
     difficulty: Mapped[float | None] = mapped_column(Float)
     intent: Mapped[str | None] = mapped_column(String(50))
+    cluster_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("clusters.id", ondelete="SET NULL"), index=True
+    )
+    # Semantic embedding for clustering / similarity (optional; pgvector).
+    embedding: Mapped[list[float] | None] = mapped_column(_EMBEDDING, nullable=True)
+
+
+class Topic(Base, TimestampMixin):
+    __tablename__ = "topics"
+
+    id: Mapped[uuid.UUID] = _pk()
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(512), nullable=False)
 
 
 class Cluster(Base, TimestampMixin):
@@ -128,6 +152,27 @@ class Cluster(Base, TimestampMixin):
         ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
     )
     topic: Mapped[str] = mapped_column(String(512), nullable=False)
+    topic_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("topics.id", ondelete="SET NULL"), index=True
+    )
+
+
+class GraphEdge(Base, TimestampMixin):
+    """A typed relation in the knowledge graph (spec §8), e.g.
+    Page -targets-> Keyword, Keyword -belongs_to-> Cluster, Cluster -supports-> Topic.
+    Polymorphic by (type, id) rather than hard FKs."""
+
+    __tablename__ = "graph_edges"
+
+    id: Mapped[uuid.UUID] = _pk()
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    source_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    source_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    relation: Mapped[str] = mapped_column(String(40), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    target_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
 
 
 class Audit(Base, TimestampMixin):

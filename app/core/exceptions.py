@@ -31,6 +31,13 @@ class NotFoundError(AppError):
     error_code = "not_found"
 
 
+class BadRequestError(AppError):
+    """The request was understood but is invalid (e.g. bad enum value)."""
+
+    status_code = 422
+    error_code = "bad_request"
+
+
 # --------------------------------------------------------------------------- #
 # Scraper errors
 # --------------------------------------------------------------------------- #

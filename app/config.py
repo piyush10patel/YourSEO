@@ -60,6 +60,12 @@ class Settings(BaseSettings):
     cache_ttl_seconds: int = 86_400  # 24 hours
     cache_path: str = "audit_cache.sqlite3"  # used when backend == "sqlite"
 
+    # --- Knowledge graph / embeddings (Phase 3) ---
+    # Embedding model for semantic clustering (requires `ollama pull`).
+    # Off by default — clustering falls back to a deterministic lexical method.
+    embeddings_enabled: bool = False
+    embed_model: str = "nomic-embed-text"
+
     # --- Crawl & queue (Phase 2) ---
     crawl_max_pages: int = 50
     crawl_max_depth: int = 3

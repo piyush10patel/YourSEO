@@ -14,10 +14,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
     Audit,
+    Cluster,
+    GraphEdge,
+    Keyword,
     Organization,
     Page,
     Project,
     Recommendation,
+    Topic,
 )
 
 _DEFAULT_ORG_NAME = "Default Organization"
@@ -198,15 +202,109 @@ async def list_audits(
 
 
 async def list_recommendations(
-    session: AsyncSession, *, project_id: uuid.UUID, organization_id: uuid.UUID
+    session: AsyncSession,
+    *,
+    project_id: uuid.UUID,
+    organization_id: uuid.UUID,
+    status: str | None = None,
+    type: str | None = None,
 ) -> list[Recommendation]:
     if not await get_project(
         session, project_id=project_id, organization_id=organization_id
     ):
         return []
+    query = select(Recommendation).where(Recommendation.project_id == project_id)
+    if status:
+        query = query.where(Recommendation.status == status)
+    if type:
+        query = query.where(Recommendation.type == type)
+    query = query.order_by(
+        Recommendation.priority.desc(), Recommendation.created_at.desc()
+    )
+    result = await session.execute(query)
+    return list(result.scalars().all())
+
+
+async def get_recommendation(
+    session: AsyncSession, *, rec_id: uuid.UUID, organization_id: uuid.UUID
+) -> Recommendation | None:
+    """Fetch a recommendation, scoped to the org via its project."""
     result = await session.execute(
         select(Recommendation)
-        .where(Recommendation.project_id == project_id)
-        .order_by(Recommendation.priority.desc(), Recommendation.created_at.desc())
+        .join(Project, Project.id == Recommendation.project_id)
+        .where(
+            Recommendation.id == rec_id,
+            Project.organization_id == organization_id,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+# --------------------------------------------------------------------------- #
+# Keywords / Clusters / Topics (Phase 3)
+# --------------------------------------------------------------------------- #
+async def add_keywords(
+    session: AsyncSession, *, project_id: uuid.UUID, keywords: list[str]
+) -> list[Keyword]:
+    """Insert keywords for a project, skipping ones that already exist."""
+    existing = await session.execute(
+        select(Keyword.keyword).where(Keyword.project_id == project_id)
+    )
+    have = {k.lower() for k in existing.scalars().all()}
+    created: list[Keyword] = []
+    for raw in keywords:
+        kw = raw.strip()
+        if not kw or kw.lower() in have:
+            continue
+        have.add(kw.lower())
+        obj = Keyword(project_id=project_id, keyword=kw)
+        session.add(obj)
+        created.append(obj)
+    await session.flush()
+    return created
+
+
+async def list_keywords(
+    session: AsyncSession, *, project_id: uuid.UUID, organization_id: uuid.UUID
+) -> list[Keyword]:
+    if not await get_project(
+        session, project_id=project_id, organization_id=organization_id
+    ):
+        return []
+    result = await session.execute(
+        select(Keyword)
+        .where(Keyword.project_id == project_id)
+        .order_by(Keyword.keyword)
+    )
+    return list(result.scalars().all())
+
+
+async def list_clusters(
+    session: AsyncSession, *, project_id: uuid.UUID, organization_id: uuid.UUID
+) -> list[Cluster]:
+    if not await get_project(
+        session, project_id=project_id, organization_id=organization_id
+    ):
+        return []
+    result = await session.execute(
+        select(Cluster).where(Cluster.project_id == project_id).order_by(Cluster.topic)
+    )
+    return list(result.scalars().all())
+
+
+async def list_topics(session: AsyncSession, *, project_id: uuid.UUID) -> list[Topic]:
+    result = await session.execute(select(Topic).where(Topic.project_id == project_id))
+    return list(result.scalars().all())
+
+
+async def list_graph_edges(
+    session: AsyncSession, *, project_id: uuid.UUID, organization_id: uuid.UUID
+) -> list[GraphEdge]:
+    if not await get_project(
+        session, project_id=project_id, organization_id=organization_id
+    ):
+        return []
+    result = await session.execute(
+        select(GraphEdge).where(GraphEdge.project_id == project_id)
     )
     return list(result.scalars().all())

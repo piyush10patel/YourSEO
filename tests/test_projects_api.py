@@ -65,3 +65,38 @@ async def test_invalid_org_header_rejected(client) -> None:
         "/api/v1/projects", headers={"X-Organization-Id": "not-a-uuid"}
     )
     assert resp.status_code == 404
+
+
+async def test_keywords_cluster_and_graph_flow(client) -> None:
+    pid = (await client.post("/api/v1/projects", json={"name": "KW"})).json()["id"]
+
+    # Add keywords (dedupes).
+    added = await client.post(
+        f"/api/v1/projects/{pid}/keywords",
+        json={"keywords": ["seo audit tool", "seo audit guide", "link building"]},
+    )
+    assert added.status_code == 200
+    assert len(added.json()) == 3
+
+    # Cluster them.
+    clusters = await client.post(f"/api/v1/projects/{pid}/cluster")
+    assert clusters.status_code == 200
+    assert len(clusters.json()) >= 1
+
+    # Build + read the knowledge graph.
+    built = await client.post(f"/api/v1/projects/{pid}/graph/build")
+    assert built.status_code == 200 and built.json()["edges"] >= 1
+
+    graph = await client.get(f"/api/v1/projects/{pid}/graph")
+    assert graph.status_code == 200
+    body = graph.json()
+    assert body["nodes"] and body["edges"]
+
+
+async def test_patch_unknown_recommendation_404(client) -> None:
+    import uuid
+
+    resp = await client.patch(
+        f"/api/v1/recommendations/{uuid.uuid4()}", json={"status": "done"}
+    )
+    assert resp.status_code == 404
